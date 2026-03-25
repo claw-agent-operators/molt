@@ -30,7 +30,6 @@ func init() {
 
 func runExport(cmd *cobra.Command, args []string) error {
 	sourceDir := args[0]
-	outPath := exportOut
 
 	arch, err := detectOrFlagArch(sourceDir)
 	if err != nil {
@@ -42,6 +41,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	outPath := exportOut
 	if outPath == "" {
 		outPath = bundleNameFromSource(sourceDir)
 	}
@@ -51,6 +51,23 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("Exporting %s (arch: %s) → %s\n", sourceDir, arch, outPath)
-	return driver.Export(sourceDir, outPath)
+	fmt.Printf("Exporting %s (arch: %s)...\n", sourceDir, arch)
+
+	b, err := driver.Export(sourceDir, nil)
+	if err != nil {
+		return fmt.Errorf("export failed: %w", err)
+	}
+
+	if err := b.SaveTo(outPath); err != nil {
+		return fmt.Errorf("failed to write bundle: %w", err)
+	}
+
+	fmt.Printf("✓ Written to %s\n", outPath)
+
+	// Print any warnings
+	for _, w := range b.Manifest.Warnings {
+		fmt.Printf("⚠  %s\n", w)
+	}
+
+	return nil
 }

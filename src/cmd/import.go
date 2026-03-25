@@ -41,11 +41,16 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 	if flagDryRun {
 		fmt.Printf("dry-run: would import %s → %s (arch: %s)\n", bundlePath, destDir, flagArch)
+		if len(renames) > 0 {
+			for old, newSlug := range renames {
+				fmt.Printf("  rename: %s → %s\n", old, newSlug)
+			}
+		}
 		return nil
 	}
 
-	fmt.Printf("Importing %s → %s (arch: %s)\n", bundlePath, destDir, flagArch)
-	return driver.Import(bundlePath, destDir, renames)
+	fmt.Printf("Importing %s → %s (arch: %s)...\n", bundlePath, destDir, flagArch)
+	return driver.Import(bundlePath, destDir, renames, nil)
 }
 
 // parseRenames parses --rename old=new flags into a map.

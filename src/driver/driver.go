@@ -11,6 +11,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/kenbolton/molt/src/bundle"
 )
 
 // Driver is a located and version-verified arch driver.
@@ -18,13 +20,9 @@ type Driver struct {
 	Arch          string
 	ArchVersion   string
 	DriverVersion string
+	DriverType    string // "local" or "remote"
+	RequiresConfig []string
 	Path          string
-}
-
-// Message types in the driver protocol.
-type Message struct {
-	Type string          `json:"type"`
-	Data json.RawMessage `json:",omitempty"`
 }
 
 // FindAll locates all molt-driver-* binaries in $PATH and ~/.molt/drivers/.
@@ -32,8 +30,7 @@ func FindAll() ([]*Driver, error) {
 	var drivers []*Driver
 	seen := map[string]bool{}
 
-	paths := searchPaths()
-	for _, dir := range paths {
+	for _, dir := range searchPaths() {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
 			continue
@@ -48,10 +45,9 @@ func FindAll() ([]*Driver, error) {
 				continue
 			}
 			seen[arch] = true
-
-			d, err := probe(arch, fullPath)
+			d, err := probeDriver(arch, fullPath)
 			if err != nil {
-				continue // skip broken drivers
+				continue
 			}
 			drivers = append(drivers, d)
 		}
@@ -62,45 +58,192 @@ func FindAll() ([]*Driver, error) {
 // Locate finds the driver for a specific arch.
 func Locate(arch string) (*Driver, error) {
 	name := "molt-driver-" + arch
+
+	// Check ~/.molt/drivers/ and $PATH
 	for _, dir := range searchPaths() {
 		fullPath := filepath.Join(dir, name)
 		if _, err := os.Stat(fullPath); err == nil {
-			return probe(arch, fullPath)
+			return probeDriver(arch, fullPath)
 		}
 	}
-	// Also try PATH lookup
+	// Also try exec.LookPath
 	if path, err := exec.LookPath(name); err == nil {
-		return probe(arch, path)
+		return probeDriver(arch, path)
 	}
-	return nil, fmt.Errorf("driver not found for arch %q\n\nInstall molt-driver-%s to your PATH or ~/.molt/drivers/", arch, arch)
+
+	return nil, fmt.Errorf(
+		"driver not found for arch %q\n\nInstall molt-driver-%s to $PATH or ~/.molt/drivers/\n\nInstalled drivers:\n  molt archs",
+		arch, arch,
+	)
 }
 
-// Export runs the export protocol against the driver.
-func (d *Driver) Export(sourceDir, outPath string) error {
-	// TODO: implement ndjson protocol
-	return fmt.Errorf("export not yet implemented")
+// DetectArch probes all installed local drivers and returns the best match.
+func DetectArch(sourceDir string) (string, error) {
+	drivers, err := FindAll()
+	if err != nil {
+		return "", err
+	}
+
+	type candidate struct {
+		arch       string
+		confidence float64
+	}
+	var best candidate
+
+	for _, d := range drivers {
+		if d.DriverType == "remote" {
+			continue // remote drivers can't auto-detect from path
+		}
+		c, err := probeConfidence(d, sourceDir)
+		if err != nil {
+			continue
+		}
+		if c > best.confidence {
+			best = candidate{arch: d.Arch, confidence: c}
+		}
+	}
+
+	if best.confidence == 0 {
+		return "", fmt.Errorf(
+			"could not detect arch for %q\n\nUse --arch to specify: --arch <nanoclaw|zepto|openclaw|pico>",
+			sourceDir,
+		)
+	}
+	return best.arch, nil
+}
+
+// Export runs the export protocol: spawns the driver, streams output,
+// assembles and returns a Bundle.
+func (d *Driver) Export(sourceDir string, config map[string]interface{}) (*bundle.Bundle, error) {
+	req := map[string]interface{}{
+		"type":       "export_request",
+		"source_dir": sourceDir,
+		"config":     config,
+	}
+	reqJSON, _ := json.Marshal(req)
+
+	cmd := exec.Command(d.Path)
+	cmd.Stdin = strings.NewReader(string(reqJSON) + "\n")
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start driver: %w", err)
+	}
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start driver: %w", err)
+	}
+
+	assembler := bundle.NewAssembler(d.Arch, d.ArchVersion)
+	scanner := bufio.NewScanner(stdout)
+	// 200MB buffer — group messages can be large (many conversation files)
+	scanner.Buffer(make([]byte, 1024*1024), 200*1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		var msg map[string]interface{}
+		if err := json.Unmarshal(line, &msg); err != nil {
+			return nil, fmt.Errorf("driver sent invalid JSON: %w", err)
+		}
+		done, err := assembler.Feed(msg)
+		if err != nil {
+			_ = cmd.Wait()
+			return nil, err
+		}
+		if done {
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("reading driver output: %w", err)
+	}
+	if err := cmd.Wait(); err != nil {
+		return nil, fmt.Errorf("driver exited with error: %w", err)
+	}
+
+	return assembler.Bundle(), nil
 }
 
 // Import runs the import protocol against the driver.
-func (d *Driver) Import(bundlePath, destDir string, renames map[string]string) error {
-	// TODO: implement ndjson protocol
-	return fmt.Errorf("import not yet implemented")
+func (d *Driver) Import(bundlePath, destDir string, renames map[string]string, config map[string]interface{}) error {
+	b, err := bundle.Load(bundlePath)
+	if err != nil {
+		return err
+	}
+
+	// Apply renames to bundle before sending
+	bundleData, _ := json.Marshal(b)
+
+	req := map[string]interface{}{
+		"type":     "import_request",
+		"dest_dir": destDir,
+		"config":   config,
+		"bundle":   json.RawMessage(bundleData),
+	}
+	reqJSON, _ := json.Marshal(req)
+
+	cmd := exec.Command(d.Path)
+	stdin := strings.NewReader(string(reqJSON) + "\n")
+	cmd.Stdin = stdin
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to start driver: %w", err)
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start driver: %w", err)
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		var msg map[string]interface{}
+		if err := json.Unmarshal(line, &msg); err != nil {
+			continue
+		}
+		msgType, _ := msg["type"].(string)
+		switch msgType {
+		case "progress":
+			fmt.Println(" ", msg["message"])
+		case "import_complete":
+			printWarnings(msg)
+			return cmd.Wait()
+		case "collision":
+			slug, _ := msg["slug"].(string)
+			return fmt.Errorf(
+				"agent slug collision — %q already exists in dest\n\nRe-run with:\n  molt import %s %s --arch %s --rename %s=%s-imported",
+				slug, bundlePath, destDir, d.Arch, slug, slug,
+			)
+		case "error":
+			code, _ := msg["code"].(string)
+			message, _ := msg["message"].(string)
+			return fmt.Errorf("driver error [%s]: %s", code, message)
+		}
+	}
+
+	return cmd.Wait()
 }
 
-// probe calls the driver's version endpoint to get metadata.
-func probe(arch, path string) (*Driver, error) {
+// probeDriver calls the driver's version endpoint.
+func probeDriver(arch, path string) (*Driver, error) {
 	cmd := exec.Command(path)
 	cmd.Stdin = strings.NewReader(`{"type":"version_request"}` + "\n")
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("driver %s failed version check: %w", path, err)
+		return nil, fmt.Errorf("driver %s version check failed: %w", path, err)
 	}
 
 	var resp struct {
-		Type          string `json:"type"`
-		Arch          string `json:"arch"`
-		ArchVersion   string `json:"arch_version"`
-		DriverVersion string `json:"driver_version"`
+		Type           string   `json:"type"`
+		Arch           string   `json:"arch"`
+		ArchVersion    string   `json:"arch_version"`
+		DriverVersion  string   `json:"driver_version"`
+		DriverType     string   `json:"driver_type"`
+		RequiresConfig []string `json:"requires_config"`
 	}
 	scanner := bufio.NewScanner(strings.NewReader(string(out)))
 	for scanner.Scan() {
@@ -111,23 +254,60 @@ func probe(arch, path string) (*Driver, error) {
 	if resp.Arch == "" {
 		return nil, fmt.Errorf("driver %s returned no version_response", path)
 	}
+	if resp.DriverType == "" {
+		resp.DriverType = "local"
+	}
 	return &Driver{
-		Arch:          resp.Arch,
-		ArchVersion:   resp.ArchVersion,
-		DriverVersion: resp.DriverVersion,
-		Path:          path,
+		Arch:           resp.Arch,
+		ArchVersion:    resp.ArchVersion,
+		DriverVersion:  resp.DriverVersion,
+		DriverType:     resp.DriverType,
+		RequiresConfig: resp.RequiresConfig,
+		Path:           path,
 	}, nil
 }
 
+// probeConfidence asks a driver how confident it is about a source directory.
+func probeConfidence(d *Driver, sourceDir string) (float64, error) {
+	req, _ := json.Marshal(map[string]string{
+		"type":       "probe_request",
+		"source_dir": sourceDir,
+	})
+	cmd := exec.Command(d.Path)
+	cmd.Stdin = strings.NewReader(string(req) + "\n")
+	out, err := cmd.Output()
+	if err != nil {
+		return 0, err
+	}
+	var resp struct {
+		Type       string  `json:"type"`
+		Confidence float64 `json:"confidence"`
+	}
+	scanner := bufio.NewScanner(strings.NewReader(string(out)))
+	for scanner.Scan() {
+		if err := json.Unmarshal(scanner.Bytes(), &resp); err == nil && resp.Type == "probe_response" {
+			return resp.Confidence, nil
+		}
+	}
+	return 0, nil
+}
+
 func searchPaths() []string {
-	paths := []string{}
-	// ~/.molt/drivers/ first (user-installed takes precedence)
+	var paths []string
 	if home, err := os.UserHomeDir(); err == nil {
 		paths = append(paths, filepath.Join(home, ".molt", "drivers"))
 	}
-	// Then $PATH entries
 	for _, p := range filepath.SplitList(os.Getenv("PATH")) {
 		paths = append(paths, p)
 	}
 	return paths
+}
+
+func printWarnings(msg map[string]interface{}) {
+	rawWarnings, _ := msg["warnings"].([]interface{})
+	for _, w := range rawWarnings {
+		if s, ok := w.(string); ok {
+			fmt.Printf("⚠  %s\n", s)
+		}
+	}
 }

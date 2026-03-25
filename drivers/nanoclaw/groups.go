@@ -49,7 +49,7 @@ func readGroups(sourceDir string) ([]GroupExportMsg, error) {
 			Slug:            row.Folder,
 			Name:            row.Name,
 			JID:             row.JID,
-			Trigger:         row.Trigger,
+			Trigger:         row.TriggerPattern,
 			AgentName:       row.AgentName,
 			RequiresTrigger: row.RequiresTrigger,
 			IsMain:          row.IsMain,
