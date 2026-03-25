@@ -19,20 +19,17 @@ func openDB(sourceDir string) (*sql.DB, error) {
 	return sql.Open("sqlite", dbPath+"?mode=ro")
 }
 
-// detectArchVersion reads the NanoClaw version from package.json if available.
-func detectArchVersion() string {
-	// Try common locations
-	for _, candidate := range []string{"package.json", "../package.json"} {
-		data, err := os.ReadFile(candidate)
-		if err != nil {
-			continue
-		}
-		var pkg struct {
-			Version string `json:"version"`
-		}
-		if json.Unmarshal(data, &pkg) == nil && pkg.Version != "" {
-			return pkg.Version
-		}
+// detectArchVersion reads the NanoClaw version from package.json in sourceDir.
+func detectArchVersion(sourceDir string) string {
+	data, err := os.ReadFile(filepath.Join(sourceDir, "package.json"))
+	if err != nil {
+		return "unknown"
+	}
+	var pkg struct {
+		Version string `json:"version"`
+	}
+	if json.Unmarshal(data, &pkg) == nil && pkg.Version != "" {
+		return pkg.Version
 	}
 	return "unknown"
 }

@@ -36,7 +36,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	driver, err := locateDriver(arch)
+	driver, err := locateDriver(arch, sourceDir)
 	if err != nil {
 		return err
 	}

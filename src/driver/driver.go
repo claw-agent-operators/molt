@@ -56,19 +56,24 @@ func FindAll() ([]*Driver, error) {
 }
 
 // Locate finds the driver for a specific arch.
-func Locate(arch string) (*Driver, error) {
+// Pass sourceDir to allow the driver to detect the installed arch version.
+func Locate(arch string, sourceDir ...string) (*Driver, error) {
 	name := "molt-driver-" + arch
+	src := ""
+	if len(sourceDir) > 0 {
+		src = sourceDir[0]
+	}
 
 	// Check ~/.molt/drivers/ and $PATH
 	for _, dir := range searchPaths() {
 		fullPath := filepath.Join(dir, name)
 		if _, err := os.Stat(fullPath); err == nil {
-			return probeDriver(arch, fullPath)
+			return probeDriver(arch, fullPath, src)
 		}
 	}
 	// Also try exec.LookPath
 	if path, err := exec.LookPath(name); err == nil {
-		return probeDriver(arch, path)
+		return probeDriver(arch, path, src)
 	}
 
 	return nil, fmt.Errorf(
@@ -228,10 +233,16 @@ func (d *Driver) Import(bundlePath, destDir string, renames map[string]string, c
 	return cmd.Wait()
 }
 
-// probeDriver calls the driver's version endpoint.
-func probeDriver(arch, path string) (*Driver, error) {
+// probeDriver calls the driver's version endpoint, optionally passing sourceDir
+// so the driver can detect the installed arch version from package.json.
+func probeDriver(arch, path string, sourceDir ...string) (*Driver, error) {
+	req := map[string]interface{}{"type": "version_request"}
+	if len(sourceDir) > 0 && sourceDir[0] != "" {
+		req["source_dir"] = sourceDir[0]
+	}
+	reqJSON, _ := json.Marshal(req)
 	cmd := exec.Command(path)
-	cmd.Stdin = strings.NewReader(`{"type":"version_request"}` + "\n")
+	cmd.Stdin = strings.NewReader(string(reqJSON) + "\n")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("driver %s version check failed: %w", path, err)

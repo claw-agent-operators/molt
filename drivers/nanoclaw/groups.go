@@ -65,12 +65,22 @@ func readGroups(sourceDir string) ([]GroupExportMsg, error) {
 				archData["container_config"] = cc
 			}
 		}
+		// Detect symlinked group dirs (e.g. main-signal → main).
+		// Export the symlink relationship; don't duplicate files.
+		groupDir := filepath.Join(groupsDir, row.Folder)
+		var files []BundleFile
+		if fi, err := os.Lstat(groupDir); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+			if target, err := os.Readlink(groupDir); err == nil {
+				// Normalize: resolve relative symlink to a slug name
+				target = filepath.Base(filepath.Clean(filepath.Join(groupsDir, target)))
+				archData["symlink_target"] = target
+			}
+			// files stays nil — no content to export for symlinked dirs
+		} else {
+			files, _ = walkGroupDir(groupDir)
+		}
 		archJSON, _ := json.Marshal(archData)
 		config.ArchNanoclaw = archJSON
-
-		// Read group files from disk
-		groupDir := filepath.Join(groupsDir, row.Folder)
-		files, _ := walkGroupDir(groupDir)
 
 		msgs = append(msgs, GroupExportMsg{
 			Type:   "group",

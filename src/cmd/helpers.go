@@ -6,8 +6,8 @@ import (
 	"github.com/kenbolton/molt/src/driver"
 )
 
-func locateDriver(arch string) (*driver.Driver, error) {
-	return driver.Locate(arch)
+func locateDriver(arch string, sourceDir ...string) (*driver.Driver, error) {
+	return driver.Locate(arch, sourceDir...)
 }
 
 func detectOrFlagArch(sourceDir string) (string, error) {

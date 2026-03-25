@@ -31,7 +31,7 @@ func main() {
 		msgType, _ := msg["type"].(string)
 		switch msgType {
 		case "version_request":
-			handleVersion()
+			handleVersion(msg)
 		case "probe_request":
 			sourceDir, _ := msg["source_dir"].(string)
 			handleProbe(sourceDir)
@@ -48,11 +48,12 @@ func main() {
 	}
 }
 
-func handleVersion() {
+func handleVersion(req map[string]interface{}) {
+	sourceDir, _ := req["source_dir"].(string)
 	write(map[string]interface{}{
 		"type":            "version_response",
 		"arch":            arch,
-		"arch_version":    detectArchVersion(),
+		"arch_version":    detectArchVersion(sourceDir),
 		"driver_version":  driverVersion,
 		"molt_protocol":   moltProtocol,
 		"driver_type":     "local",
