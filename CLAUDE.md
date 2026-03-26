@@ -28,6 +28,9 @@ cd drivers/nanoclaw && go test -run TestRoundTrip ./...
 
 # Lint (requires golangci-lint)
 make lint
+
+# Format all Go source files
+make fmt
 ```
 
 The nanoclaw CLI tests (`cli_test.go`) auto-build the molt and driver binaries in `TestMain` and skip themselves if the build fails — no manual setup required.
