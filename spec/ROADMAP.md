@@ -16,6 +16,7 @@
 
 ## v0.2.0 — Cross-arch (local)
 
+- [x] NanoClaw driver
 - [ ] ZeptoClaw driver (OpenClaw → ZeptoClaw already exists; extend to NanoClaw source)
 - [ ] OpenClaw driver (read existing OpenClaw installations)
 - [ ] PicoClaw driver
@@ -44,9 +45,9 @@ migration requires their API. Remote drivers handle this transparently via the
 
 ## v0.4.0 — Polish
 
-- [ ] `molt diff <bundle1> <bundle2>` — show what changed between exports
+- [x] `molt diff <bundle1> <bundle2>` — show what changed between exports
 - [ ] Incremental export (only export changes since last molt)
-- [ ] Per-group exclude: `--exclude <slug>`
+- [x] Per-group exclude: `--exclude <slug>`
 - [x] Shell completions (bash, zsh, fish)
 
 ## Future (v1+)
