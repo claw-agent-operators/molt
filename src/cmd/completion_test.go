@@ -225,9 +225,9 @@ func TestCompleteMoltFile(t *testing.T) {
 
 func TestCompleteMoltFileOrDir(t *testing.T) {
 	cases := []struct {
-		args      []string
-		wantExts  []string
-		wantDir   cobra.ShellCompDirective
+		args     []string
+		wantExts []string
+		wantDir  cobra.ShellCompDirective
 	}{
 		{nil, []string{"molt"}, cobra.ShellCompDirectiveFilterFileExt},
 		{[]string{"bundle.molt"}, nil, cobra.ShellCompDirectiveFilterDirs},

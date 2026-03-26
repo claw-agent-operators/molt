@@ -371,7 +371,7 @@ func computeDiff(a, b *bundle.Bundle, pathFilter string, withPatch bool) *Bundle
 			aSkillFiles := extractPrefix(a.Files, prefix)
 			bSkillFiles := extractPrefix(b.Files, prefix)
 			// Skills show file names only — no inline patch regardless of withPatch.
-		added, removed, changed := compareFiles(aSkillFiles, bSkillFiles, false)
+			added, removed, changed := compareFiles(aSkillFiles, bSkillFiles, false)
 			if len(added) > 0 || len(removed) > 0 || len(changed) > 0 {
 				changedNames := make([]string, len(changed))
 				for i, c := range changed {
@@ -687,7 +687,7 @@ func unifiedDiff(pathA, pathB string, a, b []byte) string {
 				bCount++
 			}
 		}
-		sb.WriteString(fmt.Sprintf("@@ -%d,%d +%d,%d @@\n", aStart+1, aCount, bStart+1, bCount))
+		fmt.Fprintf(&sb, "@@ -%d,%d +%d,%d @@\n", aStart+1, aCount, bStart+1, bCount)
 		for _, e := range hunkEdits {
 			switch e.kind {
 			case editEqual:
@@ -986,18 +986,18 @@ func printDiffStat(d *BundleDiff, pathA, pathB string) {
 // ── Output: JSON ──────────────────────────────────────────────────────────────
 
 type diffJSONOutput struct {
-	BundleA   string              `json:"bundle_a"`
-	BundleB   string              `json:"bundle_b"`
-	Groups    diffGroupsJSON      `json:"groups"`
-	Tasks     diffTasksJSON       `json:"tasks"`
-	Skills    diffSkillsJSON      `json:"skills"`
-	Sessions  diffSessionsJSON    `json:"sessions"`
-	Identical bool                `json:"identical"`
+	BundleA   string           `json:"bundle_a"`
+	BundleB   string           `json:"bundle_b"`
+	Groups    diffGroupsJSON   `json:"groups"`
+	Tasks     diffTasksJSON    `json:"tasks"`
+	Skills    diffSkillsJSON   `json:"skills"`
+	Sessions  diffSessionsJSON `json:"sessions"`
+	Identical bool             `json:"identical"`
 }
 
 type diffGroupsJSON struct {
-	Added   []string       `json:"added"`
-	Removed []string       `json:"removed"`
+	Added   []string        `json:"added"`
+	Removed []string        `json:"removed"`
 	Changed []groupDiffJSON `json:"changed"`
 }
 

@@ -24,10 +24,10 @@ type Bundle struct {
 
 // Manifest is the bundle's manifest.json.
 type Manifest struct {
-	MoltVersion string            `json:"molt_version"`
-	CreatedAt   string            `json:"created_at"`
-	Source      ArchInfo          `json:"source"`
-	ImportedTo  *ArchInfo         `json:"imported_to"`
+	MoltVersion string              `json:"molt_version"`
+	CreatedAt   string              `json:"created_at"`
+	Source      ArchInfo            `json:"source"`
+	ImportedTo  *ArchInfo           `json:"imported_to"`
 	Groups      []string            `json:"groups"`
 	Skills      map[string][]string `json:"skills,omitempty"` // skill name → group slugs
 	Warnings    []string            `json:"warnings"`
