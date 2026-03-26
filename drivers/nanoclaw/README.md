@@ -24,6 +24,7 @@ molt locates drivers via `~/.molt/drivers/` or `$PATH`. The binary must be named
 | `groups/<slug>/` | All files in group directories | See limits below |
 | `groups/global/` | Global CLAUDE.md and memory | Included as unregistered group |
 | `data/sessions/<slug>/` | Claude session cache | Best-effort only |
+| `data/sessions/<slug>/.claude/skills/<name>/` | User-installed skills | Requires `_meta.json`; built-ins skipped |
 | `.env` | Secret key names | Values never exported |
 
 ## What gets skipped
@@ -47,7 +48,6 @@ Session export is best-effort. Session IDs (UUIDs) in the Claude session cache a
 
 ## Known limitations
 
-- **Skills** — not exported; NanoClaw has no skills concept in the current release
 - **Container images** — not included; must be rebuilt in the target environment
 - **Session ID validity** — session IDs may not be recognized by the target installation
 - **Absolute paths in config** — any absolute paths embedded in group config files are not rewritten on import

@@ -39,7 +39,7 @@ molt ~/old-install ~/new-install --arch zepto
 | Global memory | ✓ | Verbatim |
 | Conversation history | ✓ | Common schema + arch extensions |
 | Scheduled tasks | ✓ | Normalized cron/interval |
-| Skills | ✗ | Not yet implemented in NanoClaw driver |
+| Skills | ✓ | User-installed only; built-ins excluded |
 | Sessions (Claude session cache) | ⚠️ | Best-effort, with warning |
 | Secrets / API keys | ✗ | `secrets-template.env` provided |
 | Container images | ✗ | Rebuilt by target arch |
