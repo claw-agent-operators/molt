@@ -37,9 +37,10 @@ Examples:
 }
 
 var (
-	flagArch   string
-	flagRename []string
-	flagDryRun bool
+	flagArch    string
+	flagRename  []string
+	flagDryRun  bool
+	flagExclude []string
 )
 
 func Execute() {
@@ -53,6 +54,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&flagArch, "arch", "", "Target architecture (e.g. nanoclaw, zepto, openclaw, pico)")
 	rootCmd.PersistentFlags().StringArrayVar(&flagRename, "rename", nil, "Rename group slug on import: --rename old=new (repeatable)")
 	rootCmd.PersistentFlags().BoolVar(&flagDryRun, "dry-run", false, "Show what would happen without making changes")
+	rootCmd.PersistentFlags().StringArrayVar(&flagExclude, "exclude", nil, "Exclude group slug from bundle (repeatable)")
 
 	_ = rootCmd.RegisterFlagCompletionFunc("arch", completeArchs)
 	_ = rootCmd.RegisterFlagCompletionFunc("rename", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
@@ -84,6 +86,9 @@ func runCombined(cmd *cobra.Command, source, dest string) error {
 		for old, newSlug := range renames {
 			fmt.Printf("  rename: %s → %s\n", old, newSlug)
 		}
+		for _, slug := range flagExclude {
+			fmt.Printf("  would exclude: %s\n", slug)
+		}
 		return nil
 	}
 
@@ -93,9 +98,12 @@ func runCombined(cmd *cobra.Command, source, dest string) error {
 		return err
 	}
 	fmt.Printf("Exporting %s (arch: %s)...\n", source, srcArch)
-	b, err := srcDriver.Export(source, nil)
+	b, excluded, err := srcDriver.Export(source, nil, flagExclude)
 	if err != nil {
 		return fmt.Errorf("export failed: %w", err)
+	}
+	for _, slug := range excluded {
+		fmt.Printf("  excluded: %s\n", slug)
 	}
 
 	tmp, err := os.CreateTemp("", "molt-*.molt")

@@ -120,7 +120,7 @@ func DetectArch(sourceDir string) (string, error) {
 
 // Export runs the export protocol: spawns the driver, streams output,
 // assembles and returns a Bundle.
-func (d *Driver) Export(sourceDir string, config map[string]interface{}) (*bundle.Bundle, error) {
+func (d *Driver) Export(sourceDir string, config map[string]interface{}, exclude []string) (*bundle.Bundle, []string, error) {
 	req := map[string]interface{}{
 		"type":       "export_request",
 		"source_dir": sourceDir,
@@ -132,13 +132,13 @@ func (d *Driver) Export(sourceDir string, config map[string]interface{}) (*bundl
 	cmd.Stdin = strings.NewReader(string(reqJSON) + "\n")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to start driver: %w", err)
+		return nil, nil, fmt.Errorf("failed to start driver: %w", err)
 	}
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start driver: %w", err)
+		return nil, nil, fmt.Errorf("failed to start driver: %w", err)
 	}
 
-	assembler := bundle.NewAssembler(d.Arch, d.ArchVersion)
+	assembler := bundle.NewAssembler(d.Arch, d.ArchVersion, exclude)
 	scanner := bufio.NewScanner(stdout)
 	// 200MB buffer — group messages can be large (many conversation files)
 	scanner.Buffer(make([]byte, 1024*1024), 200*1024*1024)
@@ -150,12 +150,12 @@ func (d *Driver) Export(sourceDir string, config map[string]interface{}) (*bundl
 		}
 		var msg map[string]interface{}
 		if err := json.Unmarshal(line, &msg); err != nil {
-			return nil, fmt.Errorf("driver sent invalid JSON: %w", err)
+			return nil, nil, fmt.Errorf("driver sent invalid JSON: %w", err)
 		}
 		done, err := assembler.Feed(msg)
 		if err != nil {
 			_ = cmd.Wait()
-			return nil, err
+			return nil, nil, err
 		}
 		if done {
 			break
@@ -163,13 +163,13 @@ func (d *Driver) Export(sourceDir string, config map[string]interface{}) (*bundl
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("reading driver output: %w", err)
+		return nil, nil, fmt.Errorf("reading driver output: %w", err)
 	}
 	if err := cmd.Wait(); err != nil {
-		return nil, fmt.Errorf("driver exited with error: %w", err)
+		return nil, nil, fmt.Errorf("driver exited with error: %w", err)
 	}
 
-	return assembler.Bundle(), nil
+	return assembler.Bundle(), assembler.Excluded(), nil
 }
 
 // Import runs the import protocol against the driver.

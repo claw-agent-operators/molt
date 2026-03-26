@@ -15,13 +15,20 @@ type Assembler struct {
 	arch         string
 	warnings     []string
 	sessionCount int
+	exclude      map[string]bool
+	excluded     []string // slugs actually matched and dropped
 }
 
 // NewAssembler creates an Assembler for a given source arch.
-func NewAssembler(sourceArch, sourceVersion string) *Assembler {
+func NewAssembler(sourceArch, sourceVersion string, exclude []string) *Assembler {
+	excl := make(map[string]bool, len(exclude))
+	for _, s := range exclude {
+		excl[s] = true
+	}
 	return &Assembler{
-		b:    New(sourceArch, sourceVersion),
-		arch: sourceArch,
+		b:       New(sourceArch, sourceVersion),
+		arch:    sourceArch,
+		exclude: excl,
 	}
 }
 
@@ -32,6 +39,11 @@ func (a *Assembler) Feed(msg map[string]interface{}) (done bool, err error) {
 
 	switch msgType {
 	case "group":
+		slug, _ := msg["slug"].(string)
+		if a.exclude[slug] {
+			a.excluded = append(a.excluded, slug)
+			return false, nil
+		}
 		return false, a.addGroup(msg)
 
 	case "task_list":
@@ -47,6 +59,10 @@ func (a *Assembler) Feed(msg map[string]interface{}) (done bool, err error) {
 		return false, a.addSkill(msg)
 
 	case "session":
+		slug, _ := msg["slug"].(string)
+		if a.exclude[slug] {
+			return false, nil // silently skip orphaned session data
+		}
 		return false, a.addSession(msg)
 
 	case "export_complete":
@@ -198,9 +214,11 @@ func (a *Assembler) addSkillManifest(msg map[string]interface{}) error {
 	for name, slugsRaw := range raw {
 		slugs, _ := slugsRaw.([]interface{})
 		for _, s := range slugs {
-			if gs, ok := s.(string); ok {
-				a.b.Manifest.Skills[name] = append(a.b.Manifest.Skills[name], gs)
+			gs, ok := s.(string)
+			if !ok || a.exclude[gs] {
+				continue
 			}
+			a.b.Manifest.Skills[name] = append(a.b.Manifest.Skills[name], gs)
 		}
 	}
 	return nil
@@ -235,8 +253,21 @@ func (a *Assembler) addSkill(msg map[string]interface{}) error {
 	return nil
 }
 
+// Excluded returns the list of slugs that were matched and dropped.
+func (a *Assembler) Excluded() []string { return a.excluded }
+
 // finalize updates the manifest with final state.
 func (a *Assembler) finalize() {
+	matched := map[string]bool{}
+	for _, s := range a.excluded {
+		matched[s] = true
+	}
+	for s := range a.exclude {
+		if !matched[s] {
+			a.warnings = append(a.warnings,
+				fmt.Sprintf("excluded slug %q not found in export — no effect", s))
+		}
+	}
 	if a.sessionCount > 0 {
 		a.warnings = append(a.warnings, fmt.Sprintf(
 			"%d session(s) exported best-effort — session IDs may not be valid in target arch",

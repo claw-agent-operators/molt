@@ -15,10 +15,14 @@ var exportCmd = &cobra.Command{
 The source architecture is auto-detected via installed drivers.
 Use --arch to override detection.
 
+Use --exclude to drop individual groups from the bundle. Excluding a group
+that is the target of a symlink group will cause that symlink to warn on import.
+
 Examples:
   molt export ~/nanoclaw-install
   molt export ~/nanoclaw-install --out backup.molt
-  molt export ~/nanoclaw-install --arch nanoclaw`,
+  molt export ~/nanoclaw-install --arch nanoclaw
+  molt export ~/nanoclaw-install --exclude kycsitescan --exclude tanglewylde`,
 	Args: cobra.ExactArgs(1),
 	RunE: runExport,
 	ValidArgsFunction: func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
@@ -55,14 +59,20 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	if flagDryRun {
 		fmt.Printf("dry-run: would export %s (arch: %s) → %s\n", sourceDir, arch, outPath)
+		for _, slug := range flagExclude {
+			fmt.Printf("  would exclude: %s\n", slug)
+		}
 		return nil
 	}
 
 	fmt.Printf("Exporting %s (arch: %s)...\n", sourceDir, arch)
 
-	b, err := driver.Export(sourceDir, nil)
+	b, excluded, err := driver.Export(sourceDir, nil, flagExclude)
 	if err != nil {
 		return fmt.Errorf("export failed: %w", err)
+	}
+	for _, slug := range excluded {
+		fmt.Printf("  excluded: %s\n", slug)
 	}
 
 	if err := b.SaveTo(outPath); err != nil {
