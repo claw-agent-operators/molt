@@ -32,6 +32,10 @@ func runImport(cmd *cobra.Command, args []string) error {
 			err, bundlePath, destDir)
 	}
 
+	if len(flagExclude) > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: --exclude has no effect on import (ignored)\n")
+	}
+
 	renames, err := parseRenames(flagRename)
 	if err != nil {
 		return err
