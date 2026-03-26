@@ -17,6 +17,7 @@ NanoClaw, OpenClaw, ZeptoClaw, PicoClaw, and others.
 
 Examples:
   molt export ~/nanoclaw-install --out my-agents.molt
+  molt inspect my-agents.molt
   molt import my-agents.molt ~/new-install --arch zepto
   molt ~/old-install ~/new-install --arch zepto`,
 	RunE: func(cmd *cobra.Command, args []string) error {

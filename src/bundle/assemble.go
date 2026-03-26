@@ -10,9 +10,10 @@ import (
 
 // Assembler builds a Bundle from a stream of driver messages.
 type Assembler struct {
-	b        *Bundle
-	arch     string
-	warnings []string
+	b            *Bundle
+	arch         string
+	warnings     []string
+	sessionCount int
 }
 
 // NewAssembler creates an Assembler for a given source arch.
@@ -170,12 +171,18 @@ func (a *Assembler) addSession(msg map[string]interface{}) error {
 		bundlePath := filepath.Join("sessions", slug, relPath)
 		a.b.Files[bundlePath] = decoded
 	}
-	a.warnings = append(a.warnings, fmt.Sprintf("session %q exported best-effort — session IDs may not be valid in target arch", slug))
+	a.sessionCount++
 	return nil
 }
 
 // finalize updates the manifest with final state.
 func (a *Assembler) finalize() {
+	if a.sessionCount > 0 {
+		a.warnings = append(a.warnings, fmt.Sprintf(
+			"%d session(s) exported best-effort — session IDs may not be valid in target arch",
+			a.sessionCount,
+		))
+	}
 	a.b.Manifest.Warnings = a.warnings
 	// Update manifest file
 	data, _ := json.MarshalIndent(a.b.Manifest, "", "  ")

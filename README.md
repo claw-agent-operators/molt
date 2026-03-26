@@ -72,6 +72,31 @@ Re-run with:
   molt import bundle.molt /dest --arch nanoclaw --rename main=main-imported
 ```
 
+## Building
+
+Requires Go 1.22+.
+
+```bash
+# Build and install molt + all drivers (default: ~/.local/bin/)
+make install-all
+
+# Override install location:
+make install-all PREFIX=/usr/local   # needs sudo if not writable
+
+# Or separately:
+make install         # molt binary only → ~/.local/bin/molt
+make install-drivers # all drivers    → ~/.local/bin/molt-driver-*
+
+# Build without installing (outputs to ./build/)
+make build
+make build-drivers
+
+# Run all tests (molt + all drivers)
+make test
+```
+
+The NanoClaw driver lives in `drivers/nanoclaw/` and has its own `go.mod`. Each driver is built independently; adding a new driver is as simple as creating a `drivers/<arch>/` directory with a `go.mod` and a binary that implements the [driver protocol](spec/DRIVER.md).
+
 ## Commands
 
 ```
@@ -84,6 +109,7 @@ molt import <bundle> <dest>     Import from bundle
   --rename <old>=<new>          Rename group slug on import (repeatable)
   --dry-run                     Show what would happen, make no changes
 
+molt inspect <bundle>           Show bundle contents without importing
 molt upgrade <bundle>           Upgrade bundle to current format version
   --out <file>                  Output path (default: overwrites in place)
 
