@@ -1,6 +1,7 @@
 *.molt
 dist/
 build/
+drivers/*/molt-driver-*
 target/
 __pycache__/
 *.pyc
