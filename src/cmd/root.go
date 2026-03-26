@@ -92,8 +92,8 @@ func runCombined(cmd *cobra.Command, source, dest string) error {
 		return fmt.Errorf("failed to create temp bundle: %w", err)
 	}
 	tmpPath := tmp.Name()
-	tmp.Close()
-	defer os.Remove(tmpPath)
+	_ = tmp.Close()
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	if err := b.SaveTo(tmpPath); err != nil {
 		return fmt.Errorf("failed to write temp bundle: %w", err)

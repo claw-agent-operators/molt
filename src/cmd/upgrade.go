@@ -4,8 +4,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/kenbolton/molt/src/bundle"
+	"github.com/spf13/cobra"
 )
 
 var upgradeCmd = &cobra.Command{

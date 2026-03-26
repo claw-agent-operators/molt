@@ -24,12 +24,12 @@ type Bundle struct {
 
 // Manifest is the bundle's manifest.json.
 type Manifest struct {
-	MoltVersion string   `json:"molt_version"`
-	CreatedAt   string   `json:"created_at"`
-	Source      ArchInfo `json:"source"`
-	ImportedTo  *ArchInfo `json:"imported_to"`
-	Groups      []string `json:"groups"`
-	Warnings    []string `json:"warnings"`
+	MoltVersion string            `json:"molt_version"`
+	CreatedAt   string            `json:"created_at"`
+	Source      ArchInfo          `json:"source"`
+	ImportedTo  *ArchInfo         `json:"imported_to"`
+	Groups      []string          `json:"groups"`
+	Warnings    []string          `json:"warnings"`
 	Checksums   map[string]string `json:"checksums,omitempty"`
 }
 
@@ -53,7 +53,7 @@ func New(sourceArch, sourceVersion string) *Bundle {
 				ArchVersion: sourceVersion,
 				Hostname:    hostname,
 			},
-			Warnings:  []string{},
+			Warnings: []string{},
 		},
 		Files: map[string][]byte{},
 	}
@@ -65,13 +65,13 @@ func Load(path string) (*Bundle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot open bundle: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	gz, err := gzip.NewReader(f)
 	if err != nil {
 		return nil, fmt.Errorf("not a valid .molt bundle (gzip): %w", err)
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 
 	bundle := &Bundle{Files: map[string][]byte{}}
 	tr := tar.NewReader(gz)
@@ -114,12 +114,10 @@ func (b *Bundle) SaveTo(path string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	gz := gzip.NewWriter(f)
-	defer gz.Close()
 	tw := tar.NewWriter(gz)
-	defer tw.Close()
 
 	for name, data := range b.Files {
 		hdr := &tar.Header{
@@ -134,14 +132,17 @@ func (b *Bundle) SaveTo(path string) error {
 			return err
 		}
 	}
-	return nil
+	if err := tw.Close(); err != nil {
+		return err
+	}
+	return gz.Close()
 }
 
 // SecretsTemplate generates a secrets-template.env from known secret key names.
 func (b *Bundle) SecretsTemplate(keys []string, sourceArch string) []byte {
 	lines := []string{
 		"# molt secrets template",
-		fmt.Sprintf("# Fill in before starting target arch"),
+		"# Fill in before starting target arch",
 		fmt.Sprintf("# Exported from %s @ %s", sourceArch, b.Manifest.CreatedAt),
 		"",
 	}

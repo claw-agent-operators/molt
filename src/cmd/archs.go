@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/kenbolton/molt/src/driver"
+	"github.com/spf13/cobra"
 )
 
 var archsCmd = &cobra.Command{

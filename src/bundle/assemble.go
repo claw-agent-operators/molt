@@ -83,7 +83,7 @@ func (a *Assembler) addGroup(msg map[string]interface{}) error {
 	}
 
 	// config.json
-	configRaw, _ := msg["config"]
+	configRaw := msg["config"]
 	configJSON, err := json.MarshalIndent(configRaw, "", "  ")
 	if err != nil {
 		return err
@@ -128,7 +128,7 @@ func (a *Assembler) addGroup(msg map[string]interface{}) error {
 
 // addTasks adds tasks.json to the bundle.
 func (a *Assembler) addTasks(msg map[string]interface{}) error {
-	tasks, _ := msg["tasks"]
+	tasks := msg["tasks"]
 	data, err := json.MarshalIndent(tasks, "", "  ")
 	if err != nil {
 		return err

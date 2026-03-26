@@ -18,12 +18,12 @@ import (
 
 // Driver is a located and version-verified arch driver.
 type Driver struct {
-	Arch          string
-	ArchVersion   string
-	DriverVersion string
-	DriverType    string // "local" or "remote"
+	Arch           string
+	ArchVersion    string
+	DriverVersion  string
+	DriverType     string // "local" or "remote"
 	RequiresConfig []string
-	Path          string
+	Path           string
 }
 
 // FindAll locates all molt-driver-* binaries in $PATH and ~/.molt/drivers/.
@@ -310,9 +310,7 @@ func searchPaths() []string {
 	if home, err := os.UserHomeDir(); err == nil {
 		paths = append(paths, filepath.Join(home, ".molt", "drivers"))
 	}
-	for _, p := range filepath.SplitList(os.Getenv("PATH")) {
-		paths = append(paths, p)
-	}
+	paths = append(paths, filepath.SplitList(os.Getenv("PATH"))...)
 	return paths
 }
 
