@@ -39,7 +39,7 @@ migration requires their API. Remote drivers handle this transparently via the
 - [ ] `molt diff <bundle1> <bundle2>` — show what changed between exports
 - [ ] Incremental export (only export changes since last molt)
 - [ ] Per-group exclude: `--exclude <slug>`
-- [ ] Shell completions (bash, zsh, fish)
+- [x] Shell completions (bash, zsh, fish)
 
 ## Future (v1+)
 

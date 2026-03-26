@@ -59,7 +59,7 @@ molt import → bundle.Load() → driver.Import()
 **Key packages:**
 - `src/bundle/` — `Bundle` struct (in-memory .molt file), `Assembler` (NDJSON → Bundle), tar read/write
 - `src/driver/` — driver discovery, version probe, `Export()`/`Import()` protocol wrappers
-- `src/cmd/` — Cobra CLI commands (`export`, `import`, `inspect`, `upgrade`, `archs`)
+- `src/cmd/` — Cobra CLI commands (`export`, `import`, `inspect`, `upgrade`, `archs`, `completion`)
 - `drivers/nanoclaw/` — standalone NanoClaw driver binary
 
 ## Driver protocol

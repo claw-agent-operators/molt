@@ -122,6 +122,9 @@ molt upgrade <bundle>           Upgrade bundle to current format version
 
 molt archs                      List installed drivers and their versions
 
+molt completion <bash|zsh|fish> Generate shell completion scripts
+  --install                     Install to the appropriate path for the shell
+
 molt <source> <dest>            Export + import in one step
   --arch <name>                 Target architecture (required)
   --rename <old>=<new>          Rename group slug
