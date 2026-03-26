@@ -41,7 +41,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	driver, err := locateDriver(arch)
+	driver, err := locateDriver(arch, destDir)
 	if err != nil {
 		return err
 	}
