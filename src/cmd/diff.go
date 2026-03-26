@@ -474,7 +474,12 @@ func compareFiles(aFiles, bFiles map[string][]byte, withPatch bool) (added, remo
 		if !isTextContent(aData) || !isTextContent(bData) {
 			fc.IsBinary = true
 		} else if withPatch {
-			fc.UnifiedDiff = unifiedDiff("a/"+name, "b/"+name, aData, bData)
+			if len(aData) > maxPatchFileBytes || len(bData) > maxPatchFileBytes {
+				fc.UnifiedDiff = fmt.Sprintf("[file too large for inline diff — %d / %d bytes]",
+					len(aData), len(bData))
+			} else {
+				fc.UnifiedDiff = unifiedDiff("a/"+name, "b/"+name, aData, bData)
+			}
 		}
 		changed = append(changed, fc)
 	}
@@ -557,6 +562,10 @@ const (
 	editInsert          // line present in b
 	editDelete          // line present in a
 )
+
+// maxPatchFileBytes is the maximum file size for inline unified diff output.
+// Files larger than this produce a placeholder message instead of a diff.
+const maxPatchFileBytes = 512 * 1024 // 512 KB
 
 type diffEdit struct {
 	kind editKind
