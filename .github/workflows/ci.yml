@@ -34,11 +34,11 @@ jobs:
       - name: Lint core
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v2.x
       - name: Lint nanoclaw driver
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v2.x
           working-directory: drivers/nanoclaw
 
   build:
