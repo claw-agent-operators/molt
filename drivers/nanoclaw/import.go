@@ -15,7 +15,8 @@ import (
 // Bundle.Files values are base64-encoded because json.Marshal([]byte) → base64 string.
 type importBundle struct {
 	Manifest struct {
-		Groups []string `json:"groups"`
+		Groups []string            `json:"groups"`
+		Skills map[string][]string `json:"skills,omitempty"` // skill name → group slugs
 	} `json:"manifest"`
 	Files map[string]string `json:"files"` // path → base64 content
 }
@@ -258,6 +259,15 @@ func doImport(destDir string, bundleRaw interface{}, renames map[string]string) 
 		})
 	}
 
+	// Import skills (best-effort, post-commit).
+	skillCount := b.importSkills(destDir, renames, &warnings)
+	if skillCount > 0 {
+		write(map[string]interface{}{
+			"type":    "progress",
+			"message": fmt.Sprintf("  ✓ %d skill installation(s) restored (best-effort)", skillCount),
+		})
+	}
+
 	write(map[string]interface{}{
 		"type":     "import_complete",
 		"imported": imported,
@@ -318,6 +328,118 @@ func (b *importBundle) writeGroupFiles(slug, destDir string) []string {
 		}
 	}
 	return warnings
+}
+
+// importSkills writes skill files from the bundle to each target group's session path.
+// Runs post-commit, best-effort: a failed skill install is a warning, not an error.
+// Returns the number of (skill, group) pairs successfully installed.
+func (b *importBundle) importSkills(destDir string, renames map[string]string, warnings *[]string) int {
+	if len(b.Manifest.Skills) == 0 {
+		return 0
+	}
+	count := 0
+	for skillName, groupSlugs := range b.Manifest.Skills {
+		prefix := "skills/" + skillName + "/"
+		for _, slug := range groupSlugs {
+			destSlug := slug
+			if r, ok := renames[slug]; ok {
+				destSlug = r
+			}
+
+			destSkillDir := filepath.Join(destDir, "data", "sessions", destSlug, ".claude", "skills", skillName)
+			metaPath := filepath.Join(destSkillDir, "_meta.json")
+
+			// Collision: skill dir already has _meta.json.
+			if existingMeta, err := os.ReadFile(metaPath); err == nil {
+				bundleMetaPath := prefix + "_meta.json"
+				if bundleMeta, ok := b.fileContent(bundleMetaPath); ok {
+					existingVer := bundleSkillVersion(existingMeta)
+					bundleVer := bundleSkillVersion(bundleMeta)
+					if existingVer != bundleVer {
+						*warnings = append(*warnings, fmt.Sprintf(
+							"skill %s/%s: dest has version %q, bundle has %q — skipped (dest may be newer)",
+							destSlug, skillName, existingVer, bundleVer,
+						))
+					}
+					// Same version: skip silently.
+				} else {
+					// Skill dir exists but unknown state — skip to be safe.
+					*warnings = append(*warnings, fmt.Sprintf(
+						"skill %s/%s: already exists in dest — skipped", destSlug, skillName,
+					))
+				}
+				continue
+			} else if !os.IsNotExist(err) {
+				// Dir exists but _meta.json is not readable for another reason.
+				*warnings = append(*warnings, fmt.Sprintf(
+					"skill %s/%s: could not check dest: %v — skipped", destSlug, skillName, err,
+				))
+				continue
+			}
+
+			if err := os.MkdirAll(destSkillDir, 0o755); err != nil {
+				*warnings = append(*warnings, fmt.Sprintf(
+					"skill %s/%s: mkdir failed: %v", destSlug, skillName, err,
+				))
+				continue
+			}
+
+			wrote := false
+			hasMeta := false
+			for path, encoded := range b.Files {
+				if !strings.HasPrefix(path, prefix) {
+					continue
+				}
+				rel := strings.TrimPrefix(path, prefix)
+				content, err := base64.StdEncoding.DecodeString(encoded)
+				if err != nil {
+					*warnings = append(*warnings, fmt.Sprintf(
+						"skill %s/%s: skipped (invalid base64)", skillName, rel,
+					))
+					continue
+				}
+				destPath := filepath.Join(destSkillDir, rel)
+				if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+					*warnings = append(*warnings, fmt.Sprintf(
+						"skill %s/%s: mkdir failed: %v", skillName, rel, err,
+					))
+					continue
+				}
+				if err := os.WriteFile(destPath, content, 0o644); err != nil {
+					*warnings = append(*warnings, fmt.Sprintf(
+						"skill %s/%s: write failed: %v", skillName, rel, err,
+					))
+					continue
+				}
+				if rel == "_meta.json" {
+					hasMeta = true
+				}
+				wrote = true
+			}
+
+			if wrote {
+				// Synthesize minimal _meta.json if the bundle didn't include one.
+				if !hasMeta {
+					meta := fmt.Sprintf(`{"slug":%q,"version":"unknown","migratedBy":"molt"}`, skillName)
+					_ = os.WriteFile(metaPath, []byte(meta), 0o644)
+				}
+				count++
+			}
+		}
+	}
+	return count
+}
+
+// bundleSkillVersion reads the "version" field from _meta.json bytes.
+// Returns "" if absent or unparseable.
+func bundleSkillVersion(data []byte) string {
+	var m struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return ""
+	}
+	return m.Version
 }
 
 // importTasks inserts scheduled tasks from tasks.json into the dest DB transaction.

@@ -117,7 +117,15 @@ func handleExport(sourceDir string) {
 	sessionWarnings := exportSessions(sourceDir)
 	warnings = append(warnings, sessionWarnings...)
 
-	write(map[string]interface{}{"type": "export_complete", "warnings": warnings})
+	// 5. Skills — best effort
+	skillCount, skillWarnings := exportSkills(sourceDir)
+	warnings = append(warnings, skillWarnings...)
+
+	write(map[string]interface{}{
+		"type":            "export_complete",
+		"warnings":        warnings,
+		"skills_exported": skillCount,
+	})
 }
 
 func handleImport(destDir string, bundleRaw interface{}, renames map[string]string) {

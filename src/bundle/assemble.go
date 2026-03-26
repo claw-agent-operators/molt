@@ -40,6 +40,12 @@ func (a *Assembler) Feed(msg map[string]interface{}) (done bool, err error) {
 	case "secrets_keys":
 		return false, a.addSecretsTemplate(msg)
 
+	case "skill_manifest":
+		return false, a.addSkillManifest(msg)
+
+	case "skill":
+		return false, a.addSkill(msg)
+
 	case "session":
 		return false, a.addSession(msg)
 
@@ -177,6 +183,55 @@ func (a *Assembler) addSession(msg map[string]interface{}) error {
 		a.b.Files[bundlePath] = decoded
 	}
 	a.sessionCount++
+	return nil
+}
+
+// addSkillManifest stores the skill-name → group-slugs mapping in the manifest.
+func (a *Assembler) addSkillManifest(msg map[string]interface{}) error {
+	raw, _ := msg["skills"].(map[string]interface{})
+	if len(raw) == 0 {
+		return nil
+	}
+	if a.b.Manifest.Skills == nil {
+		a.b.Manifest.Skills = map[string][]string{}
+	}
+	for name, slugsRaw := range raw {
+		slugs, _ := slugsRaw.([]interface{})
+		for _, s := range slugs {
+			if gs, ok := s.(string); ok {
+				a.b.Manifest.Skills[name] = append(a.b.Manifest.Skills[name], gs)
+			}
+		}
+	}
+	return nil
+}
+
+// addSkill adds a skill's files to the bundle under skills/<name>/.
+func (a *Assembler) addSkill(msg map[string]interface{}) error {
+	name, _ := msg["name"].(string)
+	if name == "" {
+		return nil
+	}
+	files, _ := msg["files"].([]interface{})
+	for _, f := range files {
+		fm, ok := f.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		relPath, _ := fm["path"].(string)
+		if relPath == "" {
+			continue
+		}
+		contentStr, _ := fm["content"].(string)
+		decoded, err := base64.StdEncoding.DecodeString(contentStr)
+		if err != nil {
+			a.warnings = append(a.warnings, fmt.Sprintf(
+				"skills/%s/%s: skipped (invalid base64)", name, relPath))
+			continue
+		}
+		bundlePath := filepath.Join("skills", name, relPath)
+		a.b.Files[bundlePath] = decoded
+	}
 	return nil
 }
 

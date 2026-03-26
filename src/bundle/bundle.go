@@ -28,9 +28,10 @@ type Manifest struct {
 	CreatedAt   string            `json:"created_at"`
 	Source      ArchInfo          `json:"source"`
 	ImportedTo  *ArchInfo         `json:"imported_to"`
-	Groups      []string          `json:"groups"`
-	Warnings    []string          `json:"warnings"`
-	Checksums   map[string]string `json:"checksums,omitempty"`
+	Groups      []string            `json:"groups"`
+	Skills      map[string][]string `json:"skills,omitempty"` // skill name → group slugs
+	Warnings    []string            `json:"warnings"`
+	Checksums   map[string]string   `json:"checksums,omitempty"`
 }
 
 // ArchInfo describes a claw architecture install.

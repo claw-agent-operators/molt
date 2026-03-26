@@ -89,11 +89,54 @@ Driver responds with a stream of bundle parts:
 ```json
 {"type": "group", "slug": "main", "config": {...}, "files": [...]}
 {"type": "task_list", "tasks": [...]}
-{"type": "skill", "name": "downwind", "files": [...]}
-{"type": "session", "slug": "main", "best_effort": true, "data": {...}}
 {"type": "secrets_keys", "keys": ["ANTHROPIC_API_KEY", "SIGNAL_ACCOUNT"]}
-{"type": "export_complete", "warnings": []}
+{"type": "skill_manifest", "skills": {"downwind": ["main", "surf-crew"], "clawsec-suite": ["main"]}}
+{"type": "skill", "name": "downwind", "files": [{"path": "skill.json", "content": "<base64>"}, ...]}
+{"type": "session", "slug": "main", "best_effort": true, "files": [...]}
+{"type": "export_complete", "warnings": [], "skills_exported": 2}
 ```
+
+### `skill_manifest` message
+
+Emitted once before any `skill` messages when user-installed skills are present. Maps each skill name to the group slugs that had it installed. Import drivers use this to restore skills only to the correct groups.
+
+```json
+{
+  "type": "skill_manifest",
+  "skills": {
+    "downwind": ["main", "surf-crew"],
+    "clawsec-suite": ["main"]
+  }
+}
+```
+
+Drivers SHOULD omit `skill_manifest` (and all `skill` messages) if no user-installed skills are found.
+
+### `skill` message
+
+One message per unique user-installed skill. Files are base64-encoded (same encoding as `group` files).
+
+```json
+{
+  "type": "skill",
+  "name": "downwind",
+  "files": [
+    {"path": "skill.json",  "content": "<base64>"},
+    {"path": "SKILL.md",    "content": "<base64>"},
+    {"path": "_meta.json",  "content": "<base64>"}
+  ]
+}
+```
+
+A skill is considered user-installed if its directory contains `_meta.json`. Drivers MUST skip skills without `_meta.json` — these are container/built-in skills that ship with the target architecture.
+
+### `export_complete` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | `"export_complete"` |
+| `warnings` | []string | Non-fatal warnings from export |
+| `skills_exported` | int | Count of distinct user-installed skills exported (omit or 0 if none) |
 
 ### Import (molt → driver)
 
