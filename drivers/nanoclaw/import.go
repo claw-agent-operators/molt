@@ -171,6 +171,15 @@ func doImport(destDir string, bundleRaw interface{}, renames map[string]string) 
 		}
 	}
 
+	// Import sessions (best-effort: session IDs may not be valid in target).
+	sessionCount := b.importSessions(destDir, renames, &warnings)
+	if sessionCount > 0 {
+		write(map[string]interface{}{
+			"type":    "progress",
+			"message": fmt.Sprintf("  ✓ %d session(s) restored (best-effort)", sessionCount),
+		})
+	}
+
 	write(map[string]interface{}{
 		"type":     "import_complete",
 		"imported": imported,
@@ -293,4 +302,51 @@ func importTasks(db *sql.DB, data []byte, renames map[string]string, warnings *[
 		}
 	}
 	return count
+}
+
+// importSessions writes session files from the bundle to destDir/data/sessions/<slug>/.
+// Session IDs are best-effort — they may not be valid in the target installation.
+// Returns the number of distinct session slugs written.
+func (b *importBundle) importSessions(destDir string, renames map[string]string, warnings *[]string) int {
+	sessionsBase := filepath.Join(destDir, "data", "sessions")
+	seen := map[string]bool{}
+
+	for path, encoded := range b.Files {
+		if !strings.HasPrefix(path, "sessions/") {
+			continue
+		}
+		// path format: sessions/<slug>/<relpath>
+		rest := strings.TrimPrefix(path, "sessions/")
+		idx := strings.Index(rest, "/")
+		if idx < 0 {
+			continue // bare sessions/<slug> with no file — skip
+		}
+		slug, rel := rest[:idx], rest[idx+1:]
+		if slug == "" || rel == "" {
+			continue
+		}
+
+		// Apply group rename if the session slug matches a renamed group.
+		destSlug := slug
+		if r, ok := renames[slug]; ok {
+			destSlug = r
+		}
+
+		content, err := base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			content = []byte(encoded)
+		}
+
+		destPath := filepath.Join(sessionsBase, destSlug, rel)
+		if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("session %s/%s: mkdir failed: %v", destSlug, rel, err))
+			continue
+		}
+		if err := os.WriteFile(destPath, content, 0o644); err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("session %s/%s: write failed: %v", destSlug, rel, err))
+			continue
+		}
+		seen[destSlug] = true
+	}
+	return len(seen)
 }

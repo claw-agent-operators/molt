@@ -53,10 +53,72 @@ func init() {
 }
 
 func runCombined(cmd *cobra.Command, source, dest string) error {
-	if flagArch == "" {
-		return fmt.Errorf("--arch is required\n\nRe-run with:\n  molt %s %s --arch <nanoclaw|zepto|openclaw|pico>", source, dest)
+	// Detect source arch (export side).
+	srcArch, err := detectOrFlagArch(source)
+	if err != nil {
+		return fmt.Errorf(
+			"--arch is required (auto-detect from source failed: %v)\n\nRe-run with:\n  molt %s %s --arch <nanoclaw|zepto|openclaw|pico>",
+			err, source, dest)
 	}
-	// Export to temp bundle, then import
-	// TODO: implement
-	return fmt.Errorf("combined molt not yet implemented — use export + import separately")
+
+	renames, err := parseRenames(flagRename)
+	if err != nil {
+		return err
+	}
+
+	if flagDryRun {
+		fmt.Printf("dry-run: would export %s (arch: %s) → import → %s\n", source, srcArch, dest)
+		for old, newSlug := range renames {
+			fmt.Printf("  rename: %s → %s\n", old, newSlug)
+		}
+		return nil
+	}
+
+	// Export to a temp bundle.
+	srcDriver, err := locateDriver(srcArch, source)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Exporting %s (arch: %s)...\n", source, srcArch)
+	b, err := srcDriver.Export(source, nil)
+	if err != nil {
+		return fmt.Errorf("export failed: %w", err)
+	}
+
+	tmp, err := os.CreateTemp("", "molt-*.molt")
+	if err != nil {
+		return fmt.Errorf("failed to create temp bundle: %w", err)
+	}
+	tmpPath := tmp.Name()
+	tmp.Close()
+	defer os.Remove(tmpPath)
+
+	if err := b.SaveTo(tmpPath); err != nil {
+		return fmt.Errorf("failed to write temp bundle: %w", err)
+	}
+
+	// Detect dest arch — fall back to source arch if dest is empty/new.
+	destArch := srcArch
+	if detected, err := detectOrFlagArch(dest); err == nil {
+		destArch = detected
+	} else if flagArch != "" {
+		destArch = flagArch
+	}
+
+	destDriver, err := locateDriver(destArch, dest)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Importing → %s (arch: %s)...\n", dest, destArch)
+	if err := destDriver.Import(tmpPath, dest, renames, nil); err != nil {
+		return err
+	}
+
+	// Print export warnings.
+	for _, w := range b.Manifest.Warnings {
+		fmt.Printf("⚠  %s\n", w)
+	}
+
+	return nil
 }

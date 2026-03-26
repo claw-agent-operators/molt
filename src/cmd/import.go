@@ -24,9 +24,10 @@ func runImport(cmd *cobra.Command, args []string) error {
 	bundlePath := args[0]
 	destDir := args[1]
 
-	if flagArch == "" {
-		return fmt.Errorf("--arch is required\n\nRe-run with:\n  molt import %s %s --arch <nanoclaw|zepto|openclaw|pico>",
-			bundlePath, destDir)
+	arch, err := detectOrFlagArch(destDir)
+	if err != nil {
+		return fmt.Errorf("--arch is required (auto-detect from dest failed: %v)\n\nRe-run with:\n  molt import %s %s --arch <nanoclaw|zepto|openclaw|pico>",
+			err, bundlePath, destDir)
 	}
 
 	renames, err := parseRenames(flagRename)
@@ -34,13 +35,13 @@ func runImport(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	driver, err := locateDriver(flagArch)
+	driver, err := locateDriver(arch)
 	if err != nil {
 		return err
 	}
 
 	if flagDryRun {
-		fmt.Printf("dry-run: would import %s → %s (arch: %s)\n", bundlePath, destDir, flagArch)
+		fmt.Printf("dry-run: would import %s → %s (arch: %s)\n", bundlePath, destDir, arch)
 		if len(renames) > 0 {
 			for old, newSlug := range renames {
 				fmt.Printf("  rename: %s → %s\n", old, newSlug)
@@ -49,7 +50,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("Importing %s → %s (arch: %s)...\n", bundlePath, destDir, flagArch)
+	fmt.Printf("Importing %s → %s (arch: %s)...\n", bundlePath, destDir, arch)
 	return driver.Import(bundlePath, destDir, renames, nil)
 }
 
