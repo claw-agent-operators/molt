@@ -1,8 +1,13 @@
-# molt
 
-Portable migration tool for claw agent architectures.
+# molt — Universal Claw Agent Migration Tool
 
-Move your agents, groups, memory, skills, and config between NanoClaw, OpenClaw, ZeptoClaw, PicoClaw, and others — without starting over.
+<p align="center">
+  <img src="assets/double-shell.svg" alt="Molt" width="100">
+</p>
+
+<p align="center">
+    Move your agents, groups, memory, skills, and config between NanoClaw, OpenClaw, ZeptoClaw, PicoClaw, and others — without starting over.
+</p>
 
 ```
 molt <source> <dest> --arch <target>
