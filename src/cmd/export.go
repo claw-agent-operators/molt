@@ -67,7 +67,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Exporting %s (arch: %s)...\n", sourceDir, arch)
 
-	b, excluded, err := driver.Export(sourceDir, nil, flagExclude)
+	b, excluded, err := driver.Export(sourceDir, nil, flagExclude, "")
 	if err != nil {
 		return fmt.Errorf("export failed: %w", err)
 	}

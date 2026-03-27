@@ -69,6 +69,8 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(upgradeCmd)
 	rootCmd.AddCommand(archsCmd)
+	rootCmd.AddCommand(syncCmd)
+	rootCmd.AddCommand(restoreCmd)
 }
 
 func runCombined(cmd *cobra.Command, source, dest string) error {
@@ -102,7 +104,7 @@ func runCombined(cmd *cobra.Command, source, dest string) error {
 		return err
 	}
 	fmt.Printf("Exporting %s (arch: %s)...\n", source, srcArch)
-	b, excluded, err := srcDriver.Export(source, nil, flagExclude)
+	b, excluded, err := srcDriver.Export(source, nil, flagExclude, "")
 	if err != nil {
 		return fmt.Errorf("export failed: %w", err)
 	}

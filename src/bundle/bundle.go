@@ -32,6 +32,9 @@ type Manifest struct {
 	Skills      map[string][]string `json:"skills,omitempty"` // skill name → group slugs
 	Warnings    []string            `json:"warnings"`
 	Checksums   map[string]string   `json:"checksums,omitempty"`
+	BundleType  string              `json:"bundle_type,omitempty"` // "full" or "delta"
+	BaseBundle  string              `json:"base_bundle,omitempty"` // base hash8 for deltas
+	Since       string              `json:"since,omitempty"`       // ISO 8601
 }
 
 // ArchInfo describes a claw architecture install.

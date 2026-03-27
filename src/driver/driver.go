@@ -119,12 +119,16 @@ func DetectArch(sourceDir string) (string, error) {
 }
 
 // Export runs the export protocol: spawns the driver, streams output,
-// assembles and returns a Bundle.
-func (d *Driver) Export(sourceDir string, config map[string]interface{}, exclude []string) (*bundle.Bundle, []string, error) {
+// assembles and returns a Bundle. Pass since="" for a full export; pass an
+// ISO 8601 timestamp to request only content modified after that time (delta).
+func (d *Driver) Export(sourceDir string, config map[string]interface{}, exclude []string, since string) (*bundle.Bundle, []string, error) {
 	req := map[string]interface{}{
 		"type":       "export_request",
 		"source_dir": sourceDir,
 		"config":     config,
+	}
+	if since != "" {
+		req["since"] = since
 	}
 	reqJSON, _ := json.Marshal(req)
 
