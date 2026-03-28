@@ -14,10 +14,9 @@ import (
 
 const schema = `
 CREATE TABLE registered_groups (
-	jid TEXT, name TEXT, folder TEXT, trigger_pattern TEXT, agent_name TEXT,
+	jid TEXT, name TEXT, folder TEXT, trigger_pattern TEXT,
 	requires_trigger INTEGER NOT NULL DEFAULT 1,
 	is_main INTEGER NOT NULL DEFAULT 0,
-	is_default_dm INTEGER NOT NULL DEFAULT 0,
 	container_config TEXT
 );
 CREATE TABLE scheduled_tasks (
@@ -44,8 +43,8 @@ func setupSourceDir(t *testing.T) string {
 		t.Fatalf("create schema: %v", err)
 	}
 	if _, err := db.Exec(`INSERT INTO registered_groups VALUES
-		('main@g.us',  'Main',  'main',  '@Andy', NULL, 0, 1, 0, NULL),
-		('other@g.us', 'Other', 'other', '@Andy', NULL, 1, 0, 0, NULL)`); err != nil {
+		('main@g.us',  'Main',  'main',  '@Andy', 0, 1, NULL),
+		('other@g.us', 'Other', 'other', '@Andy', 1, 0, NULL)`); err != nil {
 		t.Fatalf("insert groups: %v", err)
 	}
 	if _, err := db.Exec(`INSERT INTO scheduled_tasks VALUES

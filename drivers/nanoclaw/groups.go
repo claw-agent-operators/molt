@@ -31,7 +31,6 @@ type GroupConfig struct {
 	Name            string          `json:"name"`
 	JID             string          `json:"jid"`
 	Trigger         string          `json:"trigger"`
-	AgentName       *string         `json:"agent_name"`
 	RequiresTrigger bool            `json:"requires_trigger"`
 	IsMain          bool            `json:"is_main"`
 	AddedAt         string          `json:"added_at,omitempty"`
@@ -62,15 +61,12 @@ func readGroups(sourceDir string) ([]GroupExportMsg, []string, error) {
 			Name:            row.Name,
 			JID:             row.JID,
 			Trigger:         row.TriggerPattern,
-			AgentName:       row.AgentName,
 			RequiresTrigger: row.RequiresTrigger,
 			IsMain:          row.IsMain,
 		}
 
 		// Preserve NanoClaw-specific fields
-		archData := map[string]interface{}{
-			"is_default_dm": row.IsDefaultDM,
-		}
+		archData := map[string]interface{}{}
 		if row.ContainerConfig != nil {
 			var cc interface{}
 			if json.Unmarshal([]byte(*row.ContainerConfig), &cc) == nil {

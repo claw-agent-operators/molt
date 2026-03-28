@@ -27,7 +27,6 @@ type importGroupConfig struct {
 	Name            string          `json:"name"`
 	JID             string          `json:"jid"`
 	Trigger         string          `json:"trigger"`
-	AgentName       *string         `json:"agent_name"`
 	RequiresTrigger bool            `json:"requires_trigger"`
 	IsMain          bool            `json:"is_main"`
 	ArchNanoclaw    json.RawMessage `json:"_arch_nanoclaw,omitempty"`
@@ -36,7 +35,6 @@ type importGroupConfig struct {
 // archNanoclawFields holds the NanoClaw-specific fields from _arch_nanoclaw.
 type archNanoclawFields struct {
 	SymlinkTarget   string          `json:"symlink_target"`
-	IsDefaultDM     bool            `json:"is_default_dm"`
 	ContainerConfig json.RawMessage `json:"container_config"`
 }
 
@@ -169,12 +167,12 @@ func doImport(destDir string, bundleRaw interface{}, renames map[string]string) 
 			}
 			if _, err = tx.Exec(`
 				INSERT INTO registered_groups
-					(jid, name, folder, trigger_pattern, agent_name,
-					 requires_trigger, is_main, is_default_dm, container_config)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+					(jid, name, folder, trigger_pattern,
+					 requires_trigger, is_main, container_config)
+				VALUES (?, ?, ?, ?, ?, ?, ?)
 			`,
-				cfg.JID, cfg.Name, destSlug, cfg.Trigger, cfg.AgentName,
-				cfg.RequiresTrigger, cfg.IsMain, arch.IsDefaultDM, containerConfigStr,
+				cfg.JID, cfg.Name, destSlug, cfg.Trigger,
+				cfg.RequiresTrigger, cfg.IsMain, containerConfigStr,
 			); err != nil {
 				cleanup()
 				writeError("DB_ERROR", fmt.Sprintf("%s: DB insert failed: %v", destSlug, err))
