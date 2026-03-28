@@ -40,6 +40,11 @@ jobs:
         with:
           version: v2.11.4
           working-directory: drivers/nanoclaw
+      - name: Lint zepto driver
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.11.4
+          working-directory: drivers/zepto
 
   build:
     name: Build (cross-compile)
@@ -56,4 +61,7 @@ jobs:
         run: make build-all
       - name: Cross-compile nanoclaw driver
         working-directory: drivers/nanoclaw
+        run: make build-all
+      - name: Cross-compile zepto driver
+        working-directory: drivers/zepto
         run: make build-all
