@@ -66,7 +66,7 @@ func skillManifestMsg(skills map[string][]string) map[string]interface{} {
 // ── exclude: group filtering ──────────────────────────────────────────────────
 
 func TestExclude_DropsGroup(t *testing.T) {
-	a := NewAssembler("test", "1.0", []string{"beta"})
+	a := NewAssembler("test", "1.0", []string{"beta"}, nil)
 	feedMessages(t, a, []map[string]interface{}{
 		groupMsg("alpha"),
 		groupMsg("beta"),
@@ -87,7 +87,7 @@ func TestExclude_DropsGroup(t *testing.T) {
 }
 
 func TestExclude_ReportsExcluded(t *testing.T) {
-	a := NewAssembler("test", "1.0", []string{"beta"})
+	a := NewAssembler("test", "1.0", []string{"beta"}, nil)
 	feedMessages(t, a, []map[string]interface{}{groupMsg("alpha"), groupMsg("beta")})
 
 	got := a.Excluded()
@@ -97,7 +97,7 @@ func TestExclude_ReportsExcluded(t *testing.T) {
 }
 
 func TestExclude_NoExcludes(t *testing.T) {
-	a := NewAssembler("test", "1.0", nil)
+	a := NewAssembler("test", "1.0", nil, nil)
 	feedMessages(t, a, []map[string]interface{}{groupMsg("alpha"), groupMsg("beta")})
 
 	if len(a.Excluded()) != 0 {
@@ -112,7 +112,7 @@ func TestExclude_NoExcludes(t *testing.T) {
 // ── exclude: session filtering ────────────────────────────────────────────────
 
 func TestExclude_DropsSession(t *testing.T) {
-	a := NewAssembler("test", "1.0", []string{"beta"})
+	a := NewAssembler("test", "1.0", []string{"beta"}, nil)
 	feedMessages(t, a, []map[string]interface{}{
 		groupMsg("alpha"),
 		groupMsg("beta"),
@@ -134,7 +134,7 @@ func TestExclude_DropsSession(t *testing.T) {
 // ── exclude: skill manifest filtering ────────────────────────────────────────
 
 func TestExclude_FiltersSkillManifest(t *testing.T) {
-	a := NewAssembler("test", "1.0", []string{"beta"})
+	a := NewAssembler("test", "1.0", []string{"beta"}, nil)
 	feedMessages(t, a, []map[string]interface{}{
 		groupMsg("alpha"),
 		groupMsg("beta"),
@@ -166,7 +166,7 @@ func TestExclude_FiltersSkillManifest(t *testing.T) {
 // ── exclude: unmatched slug warning ──────────────────────────────────────────
 
 func TestExclude_WarnOnUnmatched(t *testing.T) {
-	a := NewAssembler("test", "1.0", []string{"bogus"})
+	a := NewAssembler("test", "1.0", []string{"bogus"}, nil)
 	feedMessages(t, a, []map[string]interface{}{groupMsg("alpha")})
 
 	warnings := a.Bundle().Manifest.Warnings
@@ -182,12 +182,135 @@ func TestExclude_WarnOnUnmatched(t *testing.T) {
 }
 
 func TestExclude_NoWarnOnMatched(t *testing.T) {
-	a := NewAssembler("test", "1.0", []string{"beta"})
+	a := NewAssembler("test", "1.0", []string{"beta"}, nil)
 	feedMessages(t, a, []map[string]interface{}{groupMsg("alpha"), groupMsg("beta")})
 
 	for _, w := range a.Bundle().Manifest.Warnings {
 		if strings.Contains(w, "not found") {
 			t.Errorf("unexpected unmatched-exclude warning: %q", w)
+		}
+	}
+}
+
+// ── include: group filtering ─────────────────────────────────────────────────
+
+func TestInclude_KeepsOnlyIncluded(t *testing.T) {
+	a := NewAssembler("test", "1.0", nil, []string{"alpha"})
+	feedMessages(t, a, []map[string]interface{}{
+		groupMsg("alpha"),
+		groupMsg("beta"),
+		groupMsg("gamma"),
+	})
+
+	b := a.Bundle()
+	if len(b.Manifest.Groups) != 1 || b.Manifest.Groups[0] != "alpha" {
+		t.Errorf("expected only [alpha] in manifest groups, got %v", b.Manifest.Groups)
+	}
+	if _, ok := b.Files["groups/alpha/config.json"]; !ok {
+		t.Error("included group alpha should be in bundle")
+	}
+	if _, ok := b.Files["groups/beta/config.json"]; ok {
+		t.Error("non-included group beta should not be in bundle")
+	}
+	if _, ok := b.Files["groups/gamma/config.json"]; ok {
+		t.Error("non-included group gamma should not be in bundle")
+	}
+}
+
+func TestInclude_ReportsExcluded(t *testing.T) {
+	a := NewAssembler("test", "1.0", nil, []string{"alpha"})
+	feedMessages(t, a, []map[string]interface{}{
+		groupMsg("alpha"),
+		groupMsg("beta"),
+		groupMsg("gamma"),
+	})
+
+	got := a.Excluded()
+	if len(got) != 2 {
+		t.Errorf("expected 2 excluded slugs, got %v", got)
+	}
+	excluded := map[string]bool{}
+	for _, s := range got {
+		excluded[s] = true
+	}
+	if !excluded["beta"] || !excluded["gamma"] {
+		t.Errorf("expected beta and gamma excluded, got %v", got)
+	}
+}
+
+// ── include: session filtering ───────────────────────────────────────────────
+
+func TestInclude_DropsNonIncludedSessions(t *testing.T) {
+	a := NewAssembler("test", "1.0", nil, []string{"alpha"})
+	feedMessages(t, a, []map[string]interface{}{
+		groupMsg("alpha"),
+		groupMsg("beta"),
+		sessionMsg("alpha"),
+		sessionMsg("beta"),
+	})
+
+	b := a.Bundle()
+	if _, ok := b.Files["sessions/alpha/session.jsonl"]; !ok {
+		t.Error("included session alpha should be in bundle")
+	}
+	for path := range b.Files {
+		if strings.HasPrefix(path, "sessions/beta/") {
+			t.Errorf("non-included session path %q should not be in bundle", path)
+		}
+	}
+}
+
+// ── include: skill manifest filtering ────────────────────────────────────────
+
+func TestInclude_FiltersSkillManifest(t *testing.T) {
+	a := NewAssembler("test", "1.0", nil, []string{"alpha"})
+	feedMessages(t, a, []map[string]interface{}{
+		groupMsg("alpha"),
+		groupMsg("beta"),
+		skillManifestMsg(map[string][]string{
+			"tool":  {"alpha", "beta"},
+			"other": {"beta"},
+		}),
+	})
+
+	b := a.Bundle()
+	if slugs, ok := b.Manifest.Skills["tool"]; !ok {
+		t.Error("skill tool should still be in manifest (alpha is included)")
+	} else {
+		if len(slugs) != 1 || slugs[0] != "alpha" {
+			t.Errorf("skill tool slugs = %v, want [alpha]", slugs)
+		}
+	}
+	if _, ok := b.Manifest.Skills["other"]; ok {
+		t.Error("skill other should be absent — its only group was not included")
+	}
+}
+
+// ── include: unmatched slug warning ──────────────────────────────────────────
+
+func TestInclude_WarnOnUnmatched(t *testing.T) {
+	a := NewAssembler("test", "1.0", nil, []string{"alpha", "missing"})
+	feedMessages(t, a, []map[string]interface{}{groupMsg("alpha")})
+
+	warnings := a.Bundle().Manifest.Warnings
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "missing") && strings.Contains(w, "not found") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected unmatched-include warning for missing, got warnings: %v", warnings)
+	}
+}
+
+func TestInclude_NoWarnOnMatched(t *testing.T) {
+	a := NewAssembler("test", "1.0", nil, []string{"alpha"})
+	feedMessages(t, a, []map[string]interface{}{groupMsg("alpha")})
+
+	for _, w := range a.Bundle().Manifest.Warnings {
+		if strings.Contains(w, "not found") {
+			t.Errorf("unexpected unmatched warning: %q", w)
 		}
 	}
 }

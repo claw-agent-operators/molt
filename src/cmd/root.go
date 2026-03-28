@@ -22,6 +22,7 @@ NanoClaw, OpenClaw, ZeptoClaw, PicoClaw, and others.
 
 Migrate:
   molt export ~/nanoclaw-install --out my-agents.molt
+  molt export ~/nanoclaw-install --include surf-crew --out single.molt
   molt inspect my-agents.molt
   molt import my-agents.molt ~/new-install --arch zepto
   molt ~/old-install ~/new-install --arch zepto
@@ -51,6 +52,7 @@ var (
 	flagRename  []string
 	flagDryRun  bool
 	flagExclude []string
+	flagInclude []string
 )
 
 func Execute() {
@@ -65,6 +67,7 @@ func init() {
 	rootCmd.PersistentFlags().StringArrayVar(&flagRename, "rename", nil, "Rename group slug on import: --rename old=new (repeatable)")
 	rootCmd.PersistentFlags().BoolVar(&flagDryRun, "dry-run", false, "Show what would happen without making changes")
 	rootCmd.PersistentFlags().StringArrayVar(&flagExclude, "exclude", nil, "Exclude group slug from bundle (repeatable)")
+	rootCmd.PersistentFlags().StringArrayVar(&flagInclude, "include", nil, "Include only these group slugs (repeatable, mutually exclusive with --exclude)")
 
 	_ = rootCmd.RegisterFlagCompletionFunc("arch", completeArchs)
 	_ = rootCmd.RegisterFlagCompletionFunc("rename", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
@@ -80,6 +83,10 @@ func init() {
 }
 
 func runCombined(cmd *cobra.Command, source, dest string) error {
+	if len(flagInclude) > 0 && len(flagExclude) > 0 {
+		return fmt.Errorf("--include and --exclude are mutually exclusive")
+	}
+
 	// Detect source arch (export side).
 	srcArch, err := detectOrFlagArch(source)
 	if err != nil {
@@ -101,6 +108,9 @@ func runCombined(cmd *cobra.Command, source, dest string) error {
 		for _, slug := range flagExclude {
 			fmt.Printf("  would exclude: %s\n", slug)
 		}
+		for _, slug := range flagInclude {
+			fmt.Printf("  would include: %s\n", slug)
+		}
 		return nil
 	}
 
@@ -110,7 +120,7 @@ func runCombined(cmd *cobra.Command, source, dest string) error {
 		return err
 	}
 	fmt.Printf("Exporting %s (arch: %s)...\n", source, srcArch)
-	b, excluded, err := srcDriver.Export(source, nil, flagExclude, "")
+	b, excluded, err := srcDriver.Export(source, nil, flagExclude, flagInclude, "")
 	if err != nil {
 		return fmt.Errorf("export failed: %w", err)
 	}

@@ -16,19 +16,25 @@ type Assembler struct {
 	warnings     []string
 	sessionCount int
 	exclude      map[string]bool
+	include      map[string]bool
 	excluded     []string // slugs actually matched and dropped
 }
 
 // NewAssembler creates an Assembler for a given source arch.
-func NewAssembler(sourceArch, sourceVersion string, exclude []string) *Assembler {
+func NewAssembler(sourceArch, sourceVersion string, exclude, include []string) *Assembler {
 	excl := make(map[string]bool, len(exclude))
 	for _, s := range exclude {
 		excl[s] = true
+	}
+	incl := make(map[string]bool, len(include))
+	for _, s := range include {
+		incl[s] = true
 	}
 	return &Assembler{
 		b:       New(sourceArch, sourceVersion),
 		arch:    sourceArch,
 		exclude: excl,
+		include: incl,
 	}
 }
 
@@ -40,6 +46,10 @@ func (a *Assembler) Feed(msg map[string]interface{}) (done bool, err error) {
 	switch msgType {
 	case "group":
 		slug, _ := msg["slug"].(string)
+		if len(a.include) > 0 && !a.include[slug] {
+			a.excluded = append(a.excluded, slug)
+			return false, nil
+		}
 		if a.exclude[slug] {
 			a.excluded = append(a.excluded, slug)
 			return false, nil
@@ -60,6 +70,9 @@ func (a *Assembler) Feed(msg map[string]interface{}) (done bool, err error) {
 
 	case "session":
 		slug, _ := msg["slug"].(string)
+		if len(a.include) > 0 && !a.include[slug] {
+			return false, nil // silently skip non-included session data
+		}
 		if a.exclude[slug] {
 			return false, nil // silently skip orphaned session data
 		}
@@ -215,7 +228,7 @@ func (a *Assembler) addSkillManifest(msg map[string]interface{}) error {
 		slugs, _ := slugsRaw.([]interface{})
 		for _, s := range slugs {
 			gs, ok := s.(string)
-			if !ok || a.exclude[gs] {
+			if !ok || a.exclude[gs] || (len(a.include) > 0 && !a.include[gs]) {
 				continue
 			}
 			a.b.Manifest.Skills[name] = append(a.b.Manifest.Skills[name], gs)
@@ -266,6 +279,17 @@ func (a *Assembler) finalize() {
 		if !matched[s] {
 			a.warnings = append(a.warnings,
 				fmt.Sprintf("excluded slug %q not found in export — no effect", s))
+		}
+	}
+	// Check for include slugs that were never seen in the export stream.
+	included := map[string]bool{}
+	for _, g := range a.b.Manifest.Groups {
+		included[g] = true
+	}
+	for s := range a.include {
+		if !included[s] {
+			a.warnings = append(a.warnings,
+				fmt.Sprintf("included slug %q not found in export — no effect", s))
 		}
 	}
 	if a.sessionCount > 0 {

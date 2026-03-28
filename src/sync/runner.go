@@ -33,7 +33,7 @@ func RunOnce(cfg *SyncConfig, state *SyncState, adapter dest.Adapter) (*SyncStat
 	}
 
 	// Export
-	b, _, err := d.Export(cfg.SourceDir, nil, nil, since)
+	b, _, err := d.Export(cfg.SourceDir, nil, nil, nil, since)
 	if err != nil {
 		return nil, "", fmt.Errorf("export failed: %w", err)
 	}

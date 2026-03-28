@@ -107,7 +107,7 @@ make test
 make lint
 ```
 
-The NanoClaw driver lives in `drivers/nanoclaw/` and has its own `go.mod`. Each driver is built independently; adding a new driver is as simple as creating a `drivers/<arch>/` directory with a `go.mod` and a binary that implements the [driver protocol](spec/DRIVER.md).
+Drivers live in `drivers/<arch>/` (e.g. `drivers/nanoclaw/`, `drivers/zepto/`) each with their own `go.mod`. Each driver is built independently; adding a new driver is as simple as creating a `drivers/<arch>/` directory with a `go.mod` and a binary that implements the [driver protocol](spec/DRIVER.md).
 
 ## Commands
 
@@ -115,7 +115,9 @@ The NanoClaw driver lives in `drivers/nanoclaw/` and has its own `go.mod`. Each 
 molt export <source>            Export to bundle
   --out <file>                  Output path (default: <source-basename>.molt)
   --arch <name>                 Override source arch detection
+  --include <slug>              Include only these group slugs (repeatable)
   --exclude <slug>              Exclude group slug from bundle (repeatable)
+  (--include and --exclude are mutually exclusive)
 
 molt import <bundle> <dest>     Import from bundle
   --arch <name>                 Target architecture (required)
@@ -160,6 +162,7 @@ molt completion <bash|zsh|fish> Generate shell completion scripts
 molt <source> <dest>            Export + import in one step
   --arch <name>                 Target architecture (required)
   --rename <old>=<new>          Rename group slug
+  --include <slug>              Include only these group slugs (repeatable)
   --exclude <slug>              Exclude group slug (repeatable)
   --dry-run                     Dry run
 ```
@@ -186,7 +189,7 @@ Destinations: `file://` (local or network-mounted), `ssh://` (via rsync). S3 sup
 
 ## Status
 
-NanoClaw driver complete (v0.1.0). ZeptoClaw, OpenClaw, and PicoClaw drivers planned for v0.2.0.
+NanoClaw and ZeptoClaw drivers complete (v0.1.0). OpenClaw and PicoClaw drivers planned for v0.2.0.
 
 See [spec/ROADMAP.md](spec/ROADMAP.md) for the full roadmap.
 

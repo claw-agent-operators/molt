@@ -23,6 +23,9 @@ go test ./...
 # Run tests for the nanoclaw driver only
 cd drivers/nanoclaw && go test ./...
 
+# Run tests for the zepto driver only
+cd drivers/zepto && go test ./...
+
 # Run a single test
 cd drivers/nanoclaw && go test -run TestRoundTrip ./...
 
@@ -37,9 +40,10 @@ The nanoclaw CLI tests (`cli_test.go`) auto-build the molt and driver binaries i
 
 ## Architecture
 
-**Two separate Go modules:**
+**Three separate Go modules:**
 - Root module (`go.mod`) — the `molt` CLI binary, in `src/`
 - `drivers/nanoclaw/go.mod` — the nanoclaw driver, a standalone binary
+- `drivers/zepto/go.mod` — the zepto driver, a standalone binary
 
 Each driver is independently built and located at runtime via `$PATH` or `~/.molt/drivers/`. Adding a new driver means creating a `drivers/<arch>/` directory with its own `go.mod`.
 
@@ -65,7 +69,8 @@ molt import → bundle.Load() → driver.Import()
 - `src/cmd/` — Cobra CLI commands (`export`, `import`, `inspect`, `upgrade`, `archs`, `completion`, `sync`, `restore`)
 - `src/dest/` — destination adapters (`file://`, `ssh://`); bundle naming helpers
 - `src/sync/` — sync config/state, schedule parsing, `RunOnce()`, daemon lifecycle
-- `drivers/nanoclaw/` — standalone NanoClaw driver binary
+- `drivers/nanoclaw/` — standalone NanoClaw driver binary (separate Go module)
+- `drivers/zepto/` — standalone ZeptoClaw driver binary (separate Go module)
 
 ## Driver protocol
 
@@ -93,6 +98,16 @@ A `.molt` file is a gzipped tar. All file content is base64-encoded (Go's `encod
 - `db.go` — SQLite helpers and arch version detection from `package.json`
 
 Import atomicity: groups and DB inserts are wrapped in a single transaction with filesystem cleanup on failure. Sessions and skills are post-commit and failures are warnings, not errors.
+
+## ZeptoClaw driver internals
+
+- `probe.go` — detects `$ZEPTOCLAW_DIR/config.json` + `sessions/`, `memory/`, `cron/` directories + binary in PATH
+- `groups.go` — reads groups from `channels.json` registry + walks `groups/<slug>/` directories; exports global memory from `memory/`
+- `tasks.go` — reads scheduled tasks from `cron/*.json`; exports secret key names from `config.json`
+- `sessions.go` — exports session JSON files from `sessions/`; converts nanoclaw JSONL to zepto JSON format on import (best-effort, tool calls dropped)
+- `import.go` — writes group files, updates `channels.json` with imported configs, collision detection + cleanup on failure
+
+No SQLite dependency — ZeptoClaw uses JSON files for all state.
 
 ## sync / restore internals
 

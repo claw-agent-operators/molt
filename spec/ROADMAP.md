@@ -15,7 +15,7 @@
 
 ## v0.2.0 — Cross-arch
 
-- [ ] ZeptoClaw driver (import from OpenClaw → ZeptoClaw already exists; extend to NanoClaw source)
+- [x] ZeptoClaw driver (export/import/probe; JSON-file based, no SQLite)
 - [ ] OpenClaw driver (read existing OpenClaw installations)
 - [ ] PicoClaw driver
 - [ ] NanoBot driver (https://github.com/HKUDS/nanobot)
@@ -29,9 +29,10 @@
 
 ## v0.3.0 — Polish
 
-- [ ] `molt diff <bundle1> <bundle2>` — show what changed between exports
-- [ ] Per-group exclude: `--exclude <slug>`
-- [ ] Shell completions
+- [x] `molt diff <bundle1> <bundle2>` — show what changed between exports
+- [x] Per-group exclude: `--exclude <slug>`
+- [x] Per-group include: `--include <slug>` (mutually exclusive with --exclude)
+- [x] Shell completions
 
 ## v1.0 — Sync and recovery
 

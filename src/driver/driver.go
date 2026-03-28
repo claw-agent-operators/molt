@@ -121,7 +121,7 @@ func DetectArch(sourceDir string) (string, error) {
 // Export runs the export protocol: spawns the driver, streams output,
 // assembles and returns a Bundle. Pass since="" for a full export; pass an
 // ISO 8601 timestamp to request only content modified after that time (delta).
-func (d *Driver) Export(sourceDir string, config map[string]interface{}, exclude []string, since string) (*bundle.Bundle, []string, error) {
+func (d *Driver) Export(sourceDir string, config map[string]interface{}, exclude, include []string, since string) (*bundle.Bundle, []string, error) {
 	req := map[string]interface{}{
 		"type":       "export_request",
 		"source_dir": sourceDir,
@@ -142,7 +142,7 @@ func (d *Driver) Export(sourceDir string, config map[string]interface{}, exclude
 		return nil, nil, fmt.Errorf("failed to start driver: %w", err)
 	}
 
-	assembler := bundle.NewAssembler(d.Arch, d.ArchVersion, exclude)
+	assembler := bundle.NewAssembler(d.Arch, d.ArchVersion, exclude, include)
 	scanner := bufio.NewScanner(stdout)
 	// 200MB buffer — group messages can be large (many conversation files)
 	scanner.Buffer(make([]byte, 1024*1024), 200*1024*1024)
